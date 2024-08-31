@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/nsym-m/go-graphql/graph"
+	"github.com/nsym-m/go-graphql/internal/graph"
 	"log"
 	"net/http"
 	"os"

@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nsym-m/go-graphql/graph/model"
+	"github.com/nsym-m/go-graphql/internal/graph/model"
 )
 
 // AddProjectV2ItemByID is the resolver for the addProjectV2ItemById field.

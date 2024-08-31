@@ -5,7 +5,6 @@ package graph
 import (
 	"bytes"
 	"context"
-	"embed"
 	"errors"
 	"fmt"
 	"strconv"
@@ -14,7 +13,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
-	"github.com/nsym-m/go-graphql/graph/model"
+	"github.com/nsym-m/go-graphql/internal/graph/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -861,20 +860,200 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 	return introspection.WrapTypeFromDef(ec.Schema(), ec.Schema().Types[name]), nil
 }
 
-//go:embed "scheme/model.graphqls" "scheme/query.graphqls"
-var sourcesFS embed.FS
+var sources = []*ast.Source{
+	{Name: "../../scheme/model.graphqls", Input: `# https://zenn.dev/hsaki/books/golang-graphql/viewer/originalserver
 
-func sourceData(filename string) string {
-	data, err := sourcesFS.ReadFile(filename)
-	if err != nil {
-		panic(fmt.Sprintf("codegen problem: %s not available", filename))
-	}
-	return string(data)
+directive @isAuthenticated on FIELD_DEFINITION
+
+scalar DateTime
+
+scalar URI
+
+interface Node {
+  id: ID!
 }
 
-var sources = []*ast.Source{
-	{Name: "scheme/model.graphqls", Input: sourceData("scheme/model.graphqls"), BuiltIn: false},
-	{Name: "scheme/query.graphqls", Input: sourceData("scheme/query.graphqls"), BuiltIn: false},
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+}
+
+type Repository implements Node {
+  id: ID!
+  owner: User!
+  name: String!
+  createdAt: DateTime!
+  issue(
+    number: Int!
+  ): Issue
+  issues(
+    after: String
+    before: String
+    first: Int
+    last: Int
+  ): IssueConnection!
+  pullRequest(
+    number: Int!
+  ): PullRequest
+  pullRequests(
+    after: String
+    before: String
+    first: Int
+    last: Int
+  ): PullRequestConnection!
+}
+
+type User implements Node {
+  id: ID!
+  name: String!
+  projectV2(
+    number: Int!
+  ): ProjectV2
+  projectV2s(
+    after: String
+    before: String
+    first: Int
+    last: Int
+  ): ProjectV2Connection!
+}
+
+type Issue implements Node {
+  id: ID!
+  url: URI!
+  title: String!
+  closed: Boolean!
+  number: Int!
+  author: User!
+  repository: Repository!
+  projectItems(
+    after: String
+    before: String
+    first: Int
+    last: Int
+  ): ProjectV2ItemConnection!
+}
+
+type IssueConnection {
+  edges: [IssueEdge]
+  nodes: [Issue]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type IssueEdge {
+  cursor: String!
+  node: Issue
+}
+
+type PullRequest implements Node {
+  id: ID!
+  baseRefName: String!
+  closed: Boolean!
+  headRefName: String!
+  url: URI!
+  number: Int!
+  repository: Repository!
+  projectItems(
+    after: String
+    before: String
+    first: Int
+    last: Int
+  ): ProjectV2ItemConnection!
+}
+
+type PullRequestConnection {
+  edges: [PullRequestEdge]
+  nodes: [PullRequest]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type PullRequestEdge {
+  cursor: String!
+  node: PullRequest
+}
+
+type ProjectV2 implements Node {
+  id: ID!
+  title: String!
+  url: URI!
+  number: Int!
+  items(
+    after: String
+    before: String
+    first: Int
+    last: Int
+  ): ProjectV2ItemConnection!
+  owner: User!
+}
+
+type ProjectV2Connection {
+  edges: [ProjectV2Edge]
+  nodes: [ProjectV2]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ProjectV2Edge {
+  cursor: String!
+  node: ProjectV2
+}
+
+union ProjectV2ItemContent = Issue | PullRequest
+
+type ProjectV2Item implements Node {
+  id: ID!
+  project: ProjectV2!
+  content: ProjectV2ItemContent
+}
+
+type ProjectV2ItemConnection {
+  edges: [ProjectV2ItemEdge]
+  nodes: [ProjectV2Item]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ProjectV2ItemEdge {
+  cursor: String!
+  node: ProjectV2Item
+}
+`, BuiltIn: false},
+	{Name: "../../scheme/query.graphqls", Input: `# https://zenn.dev/hsaki/books/golang-graphql/viewer/originalserver
+
+type Query {
+  repository(
+    name: String!
+    owner: String!
+  ): Repository
+
+  user(
+    name: String!
+  ): User @isAuthenticated
+
+  node(
+    id: ID!
+  ): Node
+
+}
+
+input AddProjectV2ItemByIdInput {
+  contentId: ID!
+  projectId: ID!
+}
+
+type AddProjectV2ItemByIdPayload {
+  item: ProjectV2Item
+}
+
+type Mutation {
+  addProjectV2ItemById(
+    input: AddProjectV2ItemByIdInput!
+  ): AddProjectV2ItemByIdPayload
+}
+`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
@@ -930,7 +1109,7 @@ func (ec *executionContext) field_Mutation_addProjectV2ItemById_args(ctx context
 	var arg0 model.AddProjectV2ItemByIDInput
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNAddProjectV2ItemByIdInput2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐAddProjectV2ItemByIDInput(ctx, tmp)
+		arg0, err = ec.unmarshalNAddProjectV2ItemByIdInput2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐAddProjectV2ItemByIDInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1326,7 +1505,7 @@ func (ec *executionContext) _AddProjectV2ItemByIdPayload_item(ctx context.Contex
 	}
 	res := resTmp.(*model.ProjectV2Item)
 	fc.Result = res
-	return ec.marshalOProjectV2Item2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2Item(ctx, field.Selections, res)
+	return ec.marshalOProjectV2Item2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2Item(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_AddProjectV2ItemByIdPayload_item(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1598,7 +1777,7 @@ func (ec *executionContext) _Issue_author(ctx context.Context, field graphql.Col
 	}
 	res := resTmp.(*model.User)
 	fc.Result = res
-	return ec.marshalNUser2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐUser(ctx, field.Selections, res)
+	return ec.marshalNUser2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐUser(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Issue_author(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1652,7 +1831,7 @@ func (ec *executionContext) _Issue_repository(ctx context.Context, field graphql
 	}
 	res := resTmp.(*model.Repository)
 	fc.Result = res
-	return ec.marshalNRepository2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐRepository(ctx, field.Selections, res)
+	return ec.marshalNRepository2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐRepository(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Issue_repository(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1714,7 +1893,7 @@ func (ec *executionContext) _Issue_projectItems(ctx context.Context, field graph
 	}
 	res := resTmp.(*model.ProjectV2ItemConnection)
 	fc.Result = res
-	return ec.marshalNProjectV2ItemConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2ItemConnection(ctx, field.Selections, res)
+	return ec.marshalNProjectV2ItemConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2ItemConnection(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Issue_projectItems(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1776,7 +1955,7 @@ func (ec *executionContext) _IssueConnection_edges(ctx context.Context, field gr
 	}
 	res := resTmp.([]*model.IssueEdge)
 	fc.Result = res
-	return ec.marshalOIssueEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐIssueEdge(ctx, field.Selections, res)
+	return ec.marshalOIssueEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐIssueEdge(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_IssueConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1823,7 +2002,7 @@ func (ec *executionContext) _IssueConnection_nodes(ctx context.Context, field gr
 	}
 	res := resTmp.([]*model.Issue)
 	fc.Result = res
-	return ec.marshalOIssue2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐIssue(ctx, field.Selections, res)
+	return ec.marshalOIssue2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐIssue(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_IssueConnection_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1885,7 +2064,7 @@ func (ec *executionContext) _IssueConnection_pageInfo(ctx context.Context, field
 	}
 	res := resTmp.(*model.PageInfo)
 	fc.Result = res
-	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
+	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_IssueConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2024,7 +2203,7 @@ func (ec *executionContext) _IssueEdge_node(ctx context.Context, field graphql.C
 	}
 	res := resTmp.(*model.Issue)
 	fc.Result = res
-	return ec.marshalOIssue2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐIssue(ctx, field.Selections, res)
+	return ec.marshalOIssue2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐIssue(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_IssueEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2083,7 +2262,7 @@ func (ec *executionContext) _Mutation_addProjectV2ItemById(ctx context.Context, 
 	}
 	res := resTmp.(*model.AddProjectV2ItemByIDPayload)
 	fc.Result = res
-	return ec.marshalOAddProjectV2ItemByIdPayload2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐAddProjectV2ItemByIDPayload(ctx, field.Selections, res)
+	return ec.marshalOAddProjectV2ItemByIdPayload2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐAddProjectV2ItemByIDPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Mutation_addProjectV2ItemById(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2488,7 +2667,7 @@ func (ec *executionContext) _ProjectV2_items(ctx context.Context, field graphql.
 	}
 	res := resTmp.(*model.ProjectV2ItemConnection)
 	fc.Result = res
-	return ec.marshalNProjectV2ItemConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2ItemConnection(ctx, field.Selections, res)
+	return ec.marshalNProjectV2ItemConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2ItemConnection(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectV2_items(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2553,7 +2732,7 @@ func (ec *executionContext) _ProjectV2_owner(ctx context.Context, field graphql.
 	}
 	res := resTmp.(*model.User)
 	fc.Result = res
-	return ec.marshalNUser2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐUser(ctx, field.Selections, res)
+	return ec.marshalNUser2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐUser(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectV2_owner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2604,7 +2783,7 @@ func (ec *executionContext) _ProjectV2Connection_edges(ctx context.Context, fiel
 	}
 	res := resTmp.([]*model.ProjectV2Edge)
 	fc.Result = res
-	return ec.marshalOProjectV2Edge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2Edge(ctx, field.Selections, res)
+	return ec.marshalOProjectV2Edge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2Edge(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectV2Connection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2651,7 +2830,7 @@ func (ec *executionContext) _ProjectV2Connection_nodes(ctx context.Context, fiel
 	}
 	res := resTmp.([]*model.ProjectV2)
 	fc.Result = res
-	return ec.marshalOProjectV22ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2(ctx, field.Selections, res)
+	return ec.marshalOProjectV22ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectV2Connection_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2709,7 +2888,7 @@ func (ec *executionContext) _ProjectV2Connection_pageInfo(ctx context.Context, f
 	}
 	res := resTmp.(*model.PageInfo)
 	fc.Result = res
-	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
+	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectV2Connection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2848,7 +3027,7 @@ func (ec *executionContext) _ProjectV2Edge_node(ctx context.Context, field graph
 	}
 	res := resTmp.(*model.ProjectV2)
 	fc.Result = res
-	return ec.marshalOProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2(ctx, field.Selections, res)
+	return ec.marshalOProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectV2Edge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2950,7 +3129,7 @@ func (ec *executionContext) _ProjectV2Item_project(ctx context.Context, field gr
 	}
 	res := resTmp.(*model.ProjectV2)
 	fc.Result = res
-	return ec.marshalNProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2(ctx, field.Selections, res)
+	return ec.marshalNProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectV2Item_project(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3005,7 +3184,7 @@ func (ec *executionContext) _ProjectV2Item_content(ctx context.Context, field gr
 	}
 	res := resTmp.(model.ProjectV2ItemContent)
 	fc.Result = res
-	return ec.marshalOProjectV2ItemContent2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2ItemContent(ctx, field.Selections, res)
+	return ec.marshalOProjectV2ItemContent2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2ItemContent(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectV2Item_content(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3046,7 +3225,7 @@ func (ec *executionContext) _ProjectV2ItemConnection_edges(ctx context.Context, 
 	}
 	res := resTmp.([]*model.ProjectV2ItemEdge)
 	fc.Result = res
-	return ec.marshalOProjectV2ItemEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2ItemEdge(ctx, field.Selections, res)
+	return ec.marshalOProjectV2ItemEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2ItemEdge(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectV2ItemConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3093,7 +3272,7 @@ func (ec *executionContext) _ProjectV2ItemConnection_nodes(ctx context.Context, 
 	}
 	res := resTmp.([]*model.ProjectV2Item)
 	fc.Result = res
-	return ec.marshalOProjectV2Item2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2Item(ctx, field.Selections, res)
+	return ec.marshalOProjectV2Item2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2Item(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectV2ItemConnection_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3145,7 +3324,7 @@ func (ec *executionContext) _ProjectV2ItemConnection_pageInfo(ctx context.Contex
 	}
 	res := resTmp.(*model.PageInfo)
 	fc.Result = res
-	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
+	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectV2ItemConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3284,7 +3463,7 @@ func (ec *executionContext) _ProjectV2ItemEdge_node(ctx context.Context, field g
 	}
 	res := resTmp.(*model.ProjectV2Item)
 	fc.Result = res
-	return ec.marshalOProjectV2Item2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2Item(ctx, field.Selections, res)
+	return ec.marshalOProjectV2Item2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2Item(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_ProjectV2ItemEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3600,7 +3779,7 @@ func (ec *executionContext) _PullRequest_repository(ctx context.Context, field g
 	}
 	res := resTmp.(*model.Repository)
 	fc.Result = res
-	return ec.marshalNRepository2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐRepository(ctx, field.Selections, res)
+	return ec.marshalNRepository2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐRepository(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_PullRequest_repository(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3662,7 +3841,7 @@ func (ec *executionContext) _PullRequest_projectItems(ctx context.Context, field
 	}
 	res := resTmp.(*model.ProjectV2ItemConnection)
 	fc.Result = res
-	return ec.marshalNProjectV2ItemConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2ItemConnection(ctx, field.Selections, res)
+	return ec.marshalNProjectV2ItemConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2ItemConnection(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_PullRequest_projectItems(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3724,7 +3903,7 @@ func (ec *executionContext) _PullRequestConnection_edges(ctx context.Context, fi
 	}
 	res := resTmp.([]*model.PullRequestEdge)
 	fc.Result = res
-	return ec.marshalOPullRequestEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPullRequestEdge(ctx, field.Selections, res)
+	return ec.marshalOPullRequestEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPullRequestEdge(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_PullRequestConnection_edges(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3771,7 +3950,7 @@ func (ec *executionContext) _PullRequestConnection_nodes(ctx context.Context, fi
 	}
 	res := resTmp.([]*model.PullRequest)
 	fc.Result = res
-	return ec.marshalOPullRequest2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPullRequest(ctx, field.Selections, res)
+	return ec.marshalOPullRequest2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPullRequest(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_PullRequestConnection_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3833,7 +4012,7 @@ func (ec *executionContext) _PullRequestConnection_pageInfo(ctx context.Context,
 	}
 	res := resTmp.(*model.PageInfo)
 	fc.Result = res
-	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
+	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_PullRequestConnection_pageInfo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3972,7 +4151,7 @@ func (ec *executionContext) _PullRequestEdge_node(ctx context.Context, field gra
 	}
 	res := resTmp.(*model.PullRequest)
 	fc.Result = res
-	return ec.marshalOPullRequest2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPullRequest(ctx, field.Selections, res)
+	return ec.marshalOPullRequest2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPullRequest(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_PullRequestEdge_node(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4031,7 +4210,7 @@ func (ec *executionContext) _Query_repository(ctx context.Context, field graphql
 	}
 	res := resTmp.(*model.Repository)
 	fc.Result = res
-	return ec.marshalORepository2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐRepository(ctx, field.Selections, res)
+	return ec.marshalORepository2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐRepository(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_repository(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4110,7 +4289,7 @@ func (ec *executionContext) _Query_user(ctx context.Context, field graphql.Colle
 		if data, ok := tmp.(*model.User); ok {
 			return data, nil
 		}
-		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/nsym-m/go-graphql/graph/model.User`, tmp)
+		return nil, fmt.Errorf(`unexpected type %T from directive, should be *github.com/nsym-m/go-graphql/internal/graph/model.User`, tmp)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4121,7 +4300,7 @@ func (ec *executionContext) _Query_user(ctx context.Context, field graphql.Colle
 	}
 	res := resTmp.(*model.User)
 	fc.Result = res
-	return ec.marshalOUser2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐUser(ctx, field.Selections, res)
+	return ec.marshalOUser2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐUser(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_user(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4183,7 +4362,7 @@ func (ec *executionContext) _Query_node(ctx context.Context, field graphql.Colle
 	}
 	res := resTmp.(model.Node)
 	fc.Result = res
-	return ec.marshalONode2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐNode(ctx, field.Selections, res)
+	return ec.marshalONode2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐNode(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Query_node(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4411,7 +4590,7 @@ func (ec *executionContext) _Repository_owner(ctx context.Context, field graphql
 	}
 	res := resTmp.(*model.User)
 	fc.Result = res
-	return ec.marshalNUser2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐUser(ctx, field.Selections, res)
+	return ec.marshalNUser2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐUser(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Repository_owner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4550,7 +4729,7 @@ func (ec *executionContext) _Repository_issue(ctx context.Context, field graphql
 	}
 	res := resTmp.(*model.Issue)
 	fc.Result = res
-	return ec.marshalOIssue2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐIssue(ctx, field.Selections, res)
+	return ec.marshalOIssue2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐIssue(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Repository_issue(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4623,7 +4802,7 @@ func (ec *executionContext) _Repository_issues(ctx context.Context, field graphq
 	}
 	res := resTmp.(*model.IssueConnection)
 	fc.Result = res
-	return ec.marshalNIssueConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐIssueConnection(ctx, field.Selections, res)
+	return ec.marshalNIssueConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐIssueConnection(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Repository_issues(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4685,7 +4864,7 @@ func (ec *executionContext) _Repository_pullRequest(ctx context.Context, field g
 	}
 	res := resTmp.(*model.PullRequest)
 	fc.Result = res
-	return ec.marshalOPullRequest2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPullRequest(ctx, field.Selections, res)
+	return ec.marshalOPullRequest2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPullRequest(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Repository_pullRequest(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4758,7 +4937,7 @@ func (ec *executionContext) _Repository_pullRequests(ctx context.Context, field 
 	}
 	res := resTmp.(*model.PullRequestConnection)
 	fc.Result = res
-	return ec.marshalNPullRequestConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPullRequestConnection(ctx, field.Selections, res)
+	return ec.marshalNPullRequestConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPullRequestConnection(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Repository_pullRequests(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4908,7 +5087,7 @@ func (ec *executionContext) _User_projectV2(ctx context.Context, field graphql.C
 	}
 	res := resTmp.(*model.ProjectV2)
 	fc.Result = res
-	return ec.marshalOProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2(ctx, field.Selections, res)
+	return ec.marshalOProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_User_projectV2(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4977,7 +5156,7 @@ func (ec *executionContext) _User_projectV2s(ctx context.Context, field graphql.
 	}
 	res := resTmp.(*model.ProjectV2Connection)
 	fc.Result = res
-	return ec.marshalNProjectV2Connection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2Connection(ctx, field.Selections, res)
+	return ec.marshalNProjectV2Connection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2Connection(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_User_projectV2s(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -8199,7 +8378,7 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
-func (ec *executionContext) unmarshalNAddProjectV2ItemByIdInput2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐAddProjectV2ItemByIDInput(ctx context.Context, v interface{}) (model.AddProjectV2ItemByIDInput, error) {
+func (ec *executionContext) unmarshalNAddProjectV2ItemByIdInput2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐAddProjectV2ItemByIDInput(ctx context.Context, v interface{}) (model.AddProjectV2ItemByIDInput, error) {
 	res, err := ec.unmarshalInputAddProjectV2ItemByIdInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
@@ -8264,7 +8443,7 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
-func (ec *executionContext) marshalNIssueConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐIssueConnection(ctx context.Context, sel ast.SelectionSet, v *model.IssueConnection) graphql.Marshaler {
+func (ec *executionContext) marshalNIssueConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐIssueConnection(ctx context.Context, sel ast.SelectionSet, v *model.IssueConnection) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -8274,7 +8453,7 @@ func (ec *executionContext) marshalNIssueConnection2ᚖgithubᚗcomᚋnsymᚑm�
 	return ec._IssueConnection(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
+func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v *model.PageInfo) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -8284,7 +8463,7 @@ func (ec *executionContext) marshalNPageInfo2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑg
 	return ec._PageInfo(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2) graphql.Marshaler {
+func (ec *executionContext) marshalNProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -8294,7 +8473,7 @@ func (ec *executionContext) marshalNProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑ
 	return ec._ProjectV2(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNProjectV2Connection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2Connection(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2Connection) graphql.Marshaler {
+func (ec *executionContext) marshalNProjectV2Connection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2Connection(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2Connection) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -8304,7 +8483,7 @@ func (ec *executionContext) marshalNProjectV2Connection2ᚖgithubᚗcomᚋnsym�
 	return ec._ProjectV2Connection(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNProjectV2ItemConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2ItemConnection(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2ItemConnection) graphql.Marshaler {
+func (ec *executionContext) marshalNProjectV2ItemConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2ItemConnection(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2ItemConnection) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -8314,7 +8493,7 @@ func (ec *executionContext) marshalNProjectV2ItemConnection2ᚖgithubᚗcomᚋns
 	return ec._ProjectV2ItemConnection(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNPullRequestConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPullRequestConnection(ctx context.Context, sel ast.SelectionSet, v *model.PullRequestConnection) graphql.Marshaler {
+func (ec *executionContext) marshalNPullRequestConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPullRequestConnection(ctx context.Context, sel ast.SelectionSet, v *model.PullRequestConnection) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -8324,7 +8503,7 @@ func (ec *executionContext) marshalNPullRequestConnection2ᚖgithubᚗcomᚋnsym
 	return ec._PullRequestConnection(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNRepository2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐRepository(ctx context.Context, sel ast.SelectionSet, v *model.Repository) graphql.Marshaler {
+func (ec *executionContext) marshalNRepository2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐRepository(ctx context.Context, sel ast.SelectionSet, v *model.Repository) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -8364,7 +8543,7 @@ func (ec *executionContext) marshalNURI2string(ctx context.Context, sel ast.Sele
 	return res
 }
 
-func (ec *executionContext) marshalNUser2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐUser(ctx context.Context, sel ast.SelectionSet, v *model.User) graphql.Marshaler {
+func (ec *executionContext) marshalNUser2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐUser(ctx context.Context, sel ast.SelectionSet, v *model.User) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
@@ -8627,7 +8806,7 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 	return res
 }
 
-func (ec *executionContext) marshalOAddProjectV2ItemByIdPayload2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐAddProjectV2ItemByIDPayload(ctx context.Context, sel ast.SelectionSet, v *model.AddProjectV2ItemByIDPayload) graphql.Marshaler {
+func (ec *executionContext) marshalOAddProjectV2ItemByIdPayload2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐAddProjectV2ItemByIDPayload(ctx context.Context, sel ast.SelectionSet, v *model.AddProjectV2ItemByIDPayload) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -8676,7 +8855,7 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	return res
 }
 
-func (ec *executionContext) marshalOIssue2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐIssue(ctx context.Context, sel ast.SelectionSet, v []*model.Issue) graphql.Marshaler {
+func (ec *executionContext) marshalOIssue2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐIssue(ctx context.Context, sel ast.SelectionSet, v []*model.Issue) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -8703,7 +8882,7 @@ func (ec *executionContext) marshalOIssue2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑg
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOIssue2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐIssue(ctx, sel, v[i])
+			ret[i] = ec.marshalOIssue2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐIssue(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -8717,14 +8896,14 @@ func (ec *executionContext) marshalOIssue2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑg
 	return ret
 }
 
-func (ec *executionContext) marshalOIssue2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐIssue(ctx context.Context, sel ast.SelectionSet, v *model.Issue) graphql.Marshaler {
+func (ec *executionContext) marshalOIssue2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐIssue(ctx context.Context, sel ast.SelectionSet, v *model.Issue) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Issue(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOIssueEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐIssueEdge(ctx context.Context, sel ast.SelectionSet, v []*model.IssueEdge) graphql.Marshaler {
+func (ec *executionContext) marshalOIssueEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐIssueEdge(ctx context.Context, sel ast.SelectionSet, v []*model.IssueEdge) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -8751,7 +8930,7 @@ func (ec *executionContext) marshalOIssueEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgo
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOIssueEdge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐIssueEdge(ctx, sel, v[i])
+			ret[i] = ec.marshalOIssueEdge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐIssueEdge(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -8765,21 +8944,21 @@ func (ec *executionContext) marshalOIssueEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgo
 	return ret
 }
 
-func (ec *executionContext) marshalOIssueEdge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐIssueEdge(ctx context.Context, sel ast.SelectionSet, v *model.IssueEdge) graphql.Marshaler {
+func (ec *executionContext) marshalOIssueEdge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐIssueEdge(ctx context.Context, sel ast.SelectionSet, v *model.IssueEdge) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._IssueEdge(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalONode2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐNode(ctx context.Context, sel ast.SelectionSet, v model.Node) graphql.Marshaler {
+func (ec *executionContext) marshalONode2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐNode(ctx context.Context, sel ast.SelectionSet, v model.Node) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Node(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOProjectV22ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2(ctx context.Context, sel ast.SelectionSet, v []*model.ProjectV2) graphql.Marshaler {
+func (ec *executionContext) marshalOProjectV22ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2(ctx context.Context, sel ast.SelectionSet, v []*model.ProjectV2) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -8806,7 +8985,7 @@ func (ec *executionContext) marshalOProjectV22ᚕᚖgithubᚗcomᚋnsymᚑmᚋgo
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2(ctx, sel, v[i])
+			ret[i] = ec.marshalOProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -8820,14 +8999,14 @@ func (ec *executionContext) marshalOProjectV22ᚕᚖgithubᚗcomᚋnsymᚑmᚋgo
 	return ret
 }
 
-func (ec *executionContext) marshalOProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2) graphql.Marshaler {
+func (ec *executionContext) marshalOProjectV22ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ProjectV2(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOProjectV2Edge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2Edge(ctx context.Context, sel ast.SelectionSet, v []*model.ProjectV2Edge) graphql.Marshaler {
+func (ec *executionContext) marshalOProjectV2Edge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2Edge(ctx context.Context, sel ast.SelectionSet, v []*model.ProjectV2Edge) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -8854,7 +9033,7 @@ func (ec *executionContext) marshalOProjectV2Edge2ᚕᚖgithubᚗcomᚋnsymᚑm�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOProjectV2Edge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2Edge(ctx, sel, v[i])
+			ret[i] = ec.marshalOProjectV2Edge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2Edge(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -8868,14 +9047,14 @@ func (ec *executionContext) marshalOProjectV2Edge2ᚕᚖgithubᚗcomᚋnsymᚑm�
 	return ret
 }
 
-func (ec *executionContext) marshalOProjectV2Edge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2Edge(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2Edge) graphql.Marshaler {
+func (ec *executionContext) marshalOProjectV2Edge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2Edge(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2Edge) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ProjectV2Edge(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOProjectV2Item2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2Item(ctx context.Context, sel ast.SelectionSet, v []*model.ProjectV2Item) graphql.Marshaler {
+func (ec *executionContext) marshalOProjectV2Item2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2Item(ctx context.Context, sel ast.SelectionSet, v []*model.ProjectV2Item) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -8902,7 +9081,7 @@ func (ec *executionContext) marshalOProjectV2Item2ᚕᚖgithubᚗcomᚋnsymᚑm�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOProjectV2Item2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2Item(ctx, sel, v[i])
+			ret[i] = ec.marshalOProjectV2Item2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2Item(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -8916,21 +9095,21 @@ func (ec *executionContext) marshalOProjectV2Item2ᚕᚖgithubᚗcomᚋnsymᚑm�
 	return ret
 }
 
-func (ec *executionContext) marshalOProjectV2Item2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2Item(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2Item) graphql.Marshaler {
+func (ec *executionContext) marshalOProjectV2Item2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2Item(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2Item) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ProjectV2Item(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOProjectV2ItemContent2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2ItemContent(ctx context.Context, sel ast.SelectionSet, v model.ProjectV2ItemContent) graphql.Marshaler {
+func (ec *executionContext) marshalOProjectV2ItemContent2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2ItemContent(ctx context.Context, sel ast.SelectionSet, v model.ProjectV2ItemContent) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ProjectV2ItemContent(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOProjectV2ItemEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2ItemEdge(ctx context.Context, sel ast.SelectionSet, v []*model.ProjectV2ItemEdge) graphql.Marshaler {
+func (ec *executionContext) marshalOProjectV2ItemEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2ItemEdge(ctx context.Context, sel ast.SelectionSet, v []*model.ProjectV2ItemEdge) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -8957,7 +9136,7 @@ func (ec *executionContext) marshalOProjectV2ItemEdge2ᚕᚖgithubᚗcomᚋnsym�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOProjectV2ItemEdge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2ItemEdge(ctx, sel, v[i])
+			ret[i] = ec.marshalOProjectV2ItemEdge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2ItemEdge(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -8971,14 +9150,14 @@ func (ec *executionContext) marshalOProjectV2ItemEdge2ᚕᚖgithubᚗcomᚋnsym�
 	return ret
 }
 
-func (ec *executionContext) marshalOProjectV2ItemEdge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐProjectV2ItemEdge(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2ItemEdge) graphql.Marshaler {
+func (ec *executionContext) marshalOProjectV2ItemEdge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2ItemEdge(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2ItemEdge) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ProjectV2ItemEdge(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOPullRequest2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPullRequest(ctx context.Context, sel ast.SelectionSet, v []*model.PullRequest) graphql.Marshaler {
+func (ec *executionContext) marshalOPullRequest2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPullRequest(ctx context.Context, sel ast.SelectionSet, v []*model.PullRequest) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -9005,7 +9184,7 @@ func (ec *executionContext) marshalOPullRequest2ᚕᚖgithubᚗcomᚋnsymᚑmᚋ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOPullRequest2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPullRequest(ctx, sel, v[i])
+			ret[i] = ec.marshalOPullRequest2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPullRequest(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -9019,14 +9198,14 @@ func (ec *executionContext) marshalOPullRequest2ᚕᚖgithubᚗcomᚋnsymᚑmᚋ
 	return ret
 }
 
-func (ec *executionContext) marshalOPullRequest2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPullRequest(ctx context.Context, sel ast.SelectionSet, v *model.PullRequest) graphql.Marshaler {
+func (ec *executionContext) marshalOPullRequest2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPullRequest(ctx context.Context, sel ast.SelectionSet, v *model.PullRequest) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._PullRequest(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOPullRequestEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPullRequestEdge(ctx context.Context, sel ast.SelectionSet, v []*model.PullRequestEdge) graphql.Marshaler {
+func (ec *executionContext) marshalOPullRequestEdge2ᚕᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPullRequestEdge(ctx context.Context, sel ast.SelectionSet, v []*model.PullRequestEdge) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -9053,7 +9232,7 @@ func (ec *executionContext) marshalOPullRequestEdge2ᚕᚖgithubᚗcomᚋnsymᚑ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalOPullRequestEdge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPullRequestEdge(ctx, sel, v[i])
+			ret[i] = ec.marshalOPullRequestEdge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPullRequestEdge(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -9067,14 +9246,14 @@ func (ec *executionContext) marshalOPullRequestEdge2ᚕᚖgithubᚗcomᚋnsymᚑ
 	return ret
 }
 
-func (ec *executionContext) marshalOPullRequestEdge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐPullRequestEdge(ctx context.Context, sel ast.SelectionSet, v *model.PullRequestEdge) graphql.Marshaler {
+func (ec *executionContext) marshalOPullRequestEdge2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐPullRequestEdge(ctx context.Context, sel ast.SelectionSet, v *model.PullRequestEdge) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._PullRequestEdge(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalORepository2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐRepository(ctx context.Context, sel ast.SelectionSet, v *model.Repository) graphql.Marshaler {
+func (ec *executionContext) marshalORepository2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐRepository(ctx context.Context, sel ast.SelectionSet, v *model.Repository) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -9097,7 +9276,7 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	return res
 }
 
-func (ec *executionContext) marshalOUser2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋgraphᚋmodelᚐUser(ctx context.Context, sel ast.SelectionSet, v *model.User) graphql.Marshaler {
+func (ec *executionContext) marshalOUser2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐUser(ctx context.Context, sel ast.SelectionSet, v *model.User) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
