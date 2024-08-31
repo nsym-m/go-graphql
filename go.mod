@@ -1,4 +1,4 @@
-module my_gql_server
+module github.com/nsym-m/go-graphql
 
 go 1.22.0
 

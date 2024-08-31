@@ -6,7 +6,9 @@ package graph
 
 import (
 	"context"
-	"my_gql_server/graph/model"
+
+	"github.com/nsym-m/go-graphql/graph/model"
+	internal1 "github.com/nsym-m/go-graphql/internal"
 )
 
 // CreateTodo is the resolver for the createTodo field.
@@ -45,11 +47,11 @@ func (r *queryResolver) Todos(ctx context.Context) ([]*model.Todo, error) {
 	}, nil
 }
 
-// Mutation returns MutationResolver implementation.
-func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
+// Mutation returns internal1.MutationResolver implementation.
+func (r *Resolver) Mutation() internal1.MutationResolver { return &mutationResolver{r} }
 
-// Query returns QueryResolver implementation.
-func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
+// Query returns internal1.QueryResolver implementation.
+func (r *Resolver) Query() internal1.QueryResolver { return &queryResolver{r} }
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

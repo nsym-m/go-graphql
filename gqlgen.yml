@@ -1,11 +1,11 @@
 # Where are all the schema files located? globs are supported eg  src/**/*.graphqls
 schema:
-  - graph/*.graphqls
+  - ./*.graphqls
 
 # Where should the generated server code go?
 exec:
-  filename: graph/generated.go
-  package: graph
+  filename: internal/generated.go
+  package: internal
 
 # Uncomment to enable federation
 # federation:
@@ -66,7 +66,7 @@ resolver:
 # gqlgen will search for any type names in the schema in these go packages
 # if they match it will use them, otherwise it will generate them.
 autobind:
-#  - "my_gql_server/graph/model"
+#  - "github.com/nsym-m/go-graphql/graph/model"
 
 # This section declares type mapping between the GraphQL and go type systems
 #
