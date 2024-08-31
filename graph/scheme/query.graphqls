@@ -1,0 +1,32 @@
+# https://zenn.dev/hsaki/books/golang-graphql/viewer/originalserver
+
+type Query {
+  repository(
+    name: String!
+    owner: String!
+  ): Repository
+
+  user(
+    name: String!
+  ): User @isAuthenticated
+
+  node(
+    id: ID!
+  ): Node
+
+}
+
+input AddProjectV2ItemByIdInput {
+  contentId: ID!
+  projectId: ID!
+}
+
+type AddProjectV2ItemByIdPayload {
+  item: ProjectV2Item
+}
+
+type Mutation {
+  addProjectV2ItemById(
+    input: AddProjectV2ItemByIdInput!
+  ): AddProjectV2ItemByIdPayload
+}

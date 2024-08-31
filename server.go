@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/nsym-m/go-graphql/graph"
-	"github.com/nsym-m/go-graphql/internal"
 	"log"
 	"net/http"
 	"os"
@@ -19,7 +18,7 @@ func main() {
 		port = defaultPort
 	}
 
-	srv := handler.NewDefaultServer(internal.NewExecutableSchema(internal.Config{Resolvers: &graph.Resolver{}}))
+	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
 
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	http.Handle("/query", srv)

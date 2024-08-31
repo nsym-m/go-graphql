@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/nsym-m/go-graphql/graph/model"
-	"github.com/nsym-m/go-graphql/internal"
 )
 
 // AddProjectV2ItemByID is the resolver for the addProjectV2ItemById field.
@@ -32,11 +31,11 @@ func (r *queryResolver) Node(ctx context.Context, id string) (model.Node, error)
 	panic(fmt.Errorf("not implemented: Node - node"))
 }
 
-// Mutation returns internal.MutationResolver implementation.
-func (r *Resolver) Mutation() internal.MutationResolver { return &mutationResolver{r} }
+// Mutation returns MutationResolver implementation.
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
-// Query returns internal.QueryResolver implementation.
-func (r *Resolver) Query() internal.QueryResolver { return &queryResolver{r} }
+// Query returns QueryResolver implementation.
+func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
