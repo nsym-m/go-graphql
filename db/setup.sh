@@ -6,7 +6,7 @@ readonly DBFILE_NAME="mygraphql.db"
 
 # Create DB file
 if [ ! -e ${DBFILE_NAME} ]; then
-    echo ".open ${DBFILE_NAME}" | sqlite3
+	echo ".open ${DBFILE_NAME}" | sqlite3
 fi
 
 # Create DB Tables
@@ -34,9 +34,11 @@ CREATE TABLE IF NOT EXISTS issues(\
 	title TEXT NOT NULL,\
 	closed INTEGER NOT NULL DEFAULT 0,\
 	number INTEGER NOT NULL,\
+	author TEXT NOT NULL,\
 	repository TEXT NOT NULL,\
 	CHECK (closed IN (0, 1)),\
 	FOREIGN KEY (repository) REFERENCES repositories(id)\
+	FOREIGN KEY (author) REFERENCES users(id)\
 );
 
 CREATE TABLE IF NOT EXISTS projects(\
@@ -84,10 +86,10 @@ INSERT INTO repositories(id, owner, name) VALUES\
 	('REPO_1', 'U_1', 'repo1')
 ;
 
-INSERT INTO issues(id, url, title, closed, number, repository) VALUES\
-	('ISSUE_1', 'http://example.com/repo1/issue/1', 'First Issue', 1, 1, 'REPO_1'),\
-	('ISSUE_2', 'http://example.com/repo1/issue/2', 'Second Issue', 0, 2, 'REPO_1'),\
-	('ISSUE_3', 'http://example.com/repo1/issue/3', 'Third Issue', 0, 3, 'REPO_1')\
+INSERT INTO issues(id, url, title, closed, number, author, repository) VALUES\
+	('ISSUE_1', 'http://example.com/repo1/issue/1', 'First Issue', 1, 1, 'U_1', 'REPO_1'),\
+	('ISSUE_2', 'http://example.com/repo1/issue/2', 'Second Issue', 0, 2, 'U_1', 'REPO_1'),\
+	('ISSUE_3', 'http://example.com/repo1/issue/3', 'Third Issue', 0, 3, 'U_1', 'REPO_1')\
 ;
 
 INSERT INTO projects(id, title, url, owner) VALUES\
