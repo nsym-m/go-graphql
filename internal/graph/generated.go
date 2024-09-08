@@ -40,6 +40,7 @@ type Config struct {
 }
 
 type ResolverRoot interface {
+	Issue() IssueResolver
 	Mutation() MutationResolver
 	Query() QueryResolver
 	Repository() RepositoryResolver
@@ -175,6 +176,11 @@ type ComplexityRoot struct {
 	}
 }
 
+type IssueResolver interface {
+	Author(ctx context.Context, obj *model.Issue) (*model.User, error)
+	Repository(ctx context.Context, obj *model.Issue) (*model.Repository, error)
+	ProjectItems(ctx context.Context, obj *model.Issue, after *string, before *string, first *int, last *int) (*model.ProjectV2ItemConnection, error)
+}
 type MutationResolver interface {
 	AddProjectV2ItemByID(ctx context.Context, input model.AddProjectV2ItemByIDInput) (*model.AddProjectV2ItemByIDPayload, error)
 }
@@ -872,64 +878,7 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 }
 
 var sources = []*ast.Source{
-	{Name: "../../scheme/model.graphqls", Input: `# https://zenn.dev/hsaki/books/golang-graphql/viewer/originalserver
-
-directive @isAuthenticated on FIELD_DEFINITION
-
-scalar DateTime
-
-scalar URI
-
-interface Node {
-  id: ID!
-}
-
-type PageInfo {
-  endCursor: String
-  hasNextPage: Boolean!
-  hasPreviousPage: Boolean!
-  startCursor: String
-}
-
-type Repository implements Node {
-  id: ID!
-  owner: User!
-  name: String!
-  createdAt: DateTime!
-  issue(
-    number: Int!
-  ): Issue
-  issues(
-    after: String
-    before: String
-    first: Int
-    last: Int
-  ): IssueConnection!
-  pullRequest(
-    number: Int!
-  ): PullRequest
-  pullRequests(
-    after: String
-    before: String
-    first: Int
-    last: Int
-  ): PullRequestConnection!
-}
-
-type User implements Node {
-  id: ID!
-  name: String!
-  projectV2(
-    number: Int!
-  ): ProjectV2
-  projectV2s(
-    after: String
-    before: String
-    first: Int
-    last: Int
-  ): ProjectV2Connection!
-}
-
+	{Name: "../../scheme/issue.graphqls", Input: `
 type Issue implements Node {
   id: ID!
   url: URI!
@@ -957,35 +906,27 @@ type IssueEdge {
   cursor: String!
   node: Issue
 }
+`, BuiltIn: false},
+	{Name: "../../scheme/model.graphqls", Input: `# https://zenn.dev/hsaki/books/golang-graphql/viewer/originalserver
 
-type PullRequest implements Node {
+directive @isAuthenticated on FIELD_DEFINITION
+
+scalar DateTime
+
+scalar URI
+
+interface Node {
   id: ID!
-  baseRefName: String!
-  closed: Boolean!
-  headRefName: String!
-  url: URI!
-  number: Int!
-  repository: Repository!
-  projectItems(
-    after: String
-    before: String
-    first: Int
-    last: Int
-  ): ProjectV2ItemConnection!
 }
 
-type PullRequestConnection {
-  edges: [PullRequestEdge]
-  nodes: [PullRequest]
-  pageInfo: PageInfo!
-  totalCount: Int!
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
 }
-
-type PullRequestEdge {
-  cursor: String!
-  node: PullRequest
-}
-
+`, BuiltIn: false},
+	{Name: "../../scheme/project.graphqls", Input: `
 type ProjectV2 implements Node {
   id: ID!
   title: String!
@@ -1032,6 +973,35 @@ type ProjectV2ItemEdge {
   node: ProjectV2Item
 }
 `, BuiltIn: false},
+	{Name: "../../scheme/pullRequest.graphqls", Input: `
+type PullRequest implements Node {
+  id: ID!
+  baseRefName: String!
+  closed: Boolean!
+  headRefName: String!
+  url: URI!
+  number: Int!
+  repository: Repository!
+  projectItems(
+    after: String
+    before: String
+    first: Int
+    last: Int
+  ): ProjectV2ItemConnection!
+}
+
+type PullRequestConnection {
+  edges: [PullRequestEdge]
+  nodes: [PullRequest]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type PullRequestEdge {
+  cursor: String!
+  node: PullRequest
+}
+`, BuiltIn: false},
 	{Name: "../../scheme/query.graphqls", Input: `# https://zenn.dev/hsaki/books/golang-graphql/viewer/originalserver
 
 type Query {
@@ -1063,6 +1033,46 @@ type Mutation {
   addProjectV2ItemById(
     input: AddProjectV2ItemByIdInput!
   ): AddProjectV2ItemByIdPayload
+}
+`, BuiltIn: false},
+	{Name: "../../scheme/repository.graphqls", Input: `
+type Repository implements Node {
+  id: ID!
+  owner: User!
+  name: String!
+  createdAt: DateTime!
+  issue(
+    number: Int!
+  ): Issue
+  issues(
+    after: String
+    before: String
+    first: Int
+    last: Int
+  ): IssueConnection!
+  pullRequest(
+    number: Int!
+  ): PullRequest
+  pullRequests(
+    after: String
+    before: String
+    first: Int
+    last: Int
+  ): PullRequestConnection!
+}
+`, BuiltIn: false},
+	{Name: "../../scheme/user.graphqls", Input: `type User implements Node {
+  id: ID!
+  name: String!
+  projectV2(
+    number: Int!
+  ): ProjectV2
+  projectV2s(
+    after: String
+    before: String
+    first: Int
+    last: Int
+  ): ProjectV2Connection!
 }
 `, BuiltIn: false},
 }
@@ -1774,7 +1784,7 @@ func (ec *executionContext) _Issue_author(ctx context.Context, field graphql.Col
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Author, nil
+		return ec.resolvers.Issue().Author(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1795,8 +1805,8 @@ func (ec *executionContext) fieldContext_Issue_author(_ context.Context, field g
 	fc = &graphql.FieldContext{
 		Object:     "Issue",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
@@ -1828,7 +1838,7 @@ func (ec *executionContext) _Issue_repository(ctx context.Context, field graphql
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Repository, nil
+		return ec.resolvers.Issue().Repository(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1849,8 +1859,8 @@ func (ec *executionContext) fieldContext_Issue_repository(_ context.Context, fie
 	fc = &graphql.FieldContext{
 		Object:     "Issue",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
@@ -1890,7 +1900,7 @@ func (ec *executionContext) _Issue_projectItems(ctx context.Context, field graph
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.ProjectItems, nil
+		return ec.resolvers.Issue().ProjectItems(rctx, obj, fc.Args["after"].(*string), fc.Args["before"].(*string), fc.Args["first"].(*int), fc.Args["last"].(*int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1911,8 +1921,8 @@ func (ec *executionContext) fieldContext_Issue_projectItems(ctx context.Context,
 	fc = &graphql.FieldContext{
 		Object:     "Issue",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "edges":
@@ -7019,20 +7029,6 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
-	case model.Repository:
-		return ec._Repository(ctx, sel, &obj)
-	case *model.Repository:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._Repository(ctx, sel, obj)
-	case model.User:
-		return ec._User(ctx, sel, &obj)
-	case *model.User:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._User(ctx, sel, obj)
 	case model.Issue:
 		return ec._Issue(ctx, sel, &obj)
 	case *model.Issue:
@@ -7040,13 +7036,6 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 			return graphql.Null
 		}
 		return ec._Issue(ctx, sel, obj)
-	case model.PullRequest:
-		return ec._PullRequest(ctx, sel, &obj)
-	case *model.PullRequest:
-		if obj == nil {
-			return graphql.Null
-		}
-		return ec._PullRequest(ctx, sel, obj)
 	case model.ProjectV2:
 		return ec._ProjectV2(ctx, sel, &obj)
 	case *model.ProjectV2:
@@ -7061,6 +7050,27 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 			return graphql.Null
 		}
 		return ec._ProjectV2Item(ctx, sel, obj)
+	case model.PullRequest:
+		return ec._PullRequest(ctx, sel, &obj)
+	case *model.PullRequest:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._PullRequest(ctx, sel, obj)
+	case model.Repository:
+		return ec._Repository(ctx, sel, &obj)
+	case *model.Repository:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Repository(ctx, sel, obj)
+	case model.User:
+		return ec._User(ctx, sel, &obj)
+	case *model.User:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._User(ctx, sel, obj)
 	default:
 		panic(fmt.Errorf("unexpected type %T", obj))
 	}
@@ -7143,43 +7153,136 @@ func (ec *executionContext) _Issue(ctx context.Context, sel ast.SelectionSet, ob
 		case "id":
 			out.Values[i] = ec._Issue_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "url":
 			out.Values[i] = ec._Issue_url(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "title":
 			out.Values[i] = ec._Issue_title(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "closed":
 			out.Values[i] = ec._Issue_closed(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "number":
 			out.Values[i] = ec._Issue_number(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "author":
-			out.Values[i] = ec._Issue_author(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Issue_author(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "repository":
-			out.Values[i] = ec._Issue_repository(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Issue_repository(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "projectItems":
-			out.Values[i] = ec._Issue_projectItems(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Issue_projectItems(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -7674,7 +7777,7 @@ func (ec *executionContext) _ProjectV2ItemEdge(ctx context.Context, sel ast.Sele
 	return out
 }
 
-var pullRequestImplementors = []string{"PullRequest", "Node", "ProjectV2ItemContent"}
+var pullRequestImplementors = []string{"PullRequest", "ProjectV2ItemContent", "Node"}
 
 func (ec *executionContext) _PullRequest(ctx context.Context, sel ast.SelectionSet, obj *model.PullRequest) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, pullRequestImplementors)
@@ -8653,6 +8756,10 @@ func (ec *executionContext) marshalNProjectV2Connection2ᚖgithubᚗcomᚋnsym�
 	return ec._ProjectV2Connection(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNProjectV2ItemConnection2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2ItemConnection(ctx context.Context, sel ast.SelectionSet, v model.ProjectV2ItemConnection) graphql.Marshaler {
+	return ec._ProjectV2ItemConnection(ctx, sel, &v)
+}
+
 func (ec *executionContext) marshalNProjectV2ItemConnection2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐProjectV2ItemConnection(ctx context.Context, sel ast.SelectionSet, v *model.ProjectV2ItemConnection) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -8675,6 +8782,10 @@ func (ec *executionContext) marshalNPullRequestConnection2ᚖgithubᚗcomᚋnsym
 		return graphql.Null
 	}
 	return ec._PullRequestConnection(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNRepository2githubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐRepository(ctx context.Context, sel ast.SelectionSet, v model.Repository) graphql.Marshaler {
+	return ec._Repository(ctx, sel, &v)
 }
 
 func (ec *executionContext) marshalNRepository2ᚖgithubᚗcomᚋnsymᚑmᚋgoᚑgraphqlᚋinternalᚋgraphᚋmodelᚐRepository(ctx context.Context, sel ast.SelectionSet, v *model.Repository) graphql.Marshaler {
