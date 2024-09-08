@@ -103,3 +103,11 @@ models:
         resolver: true
       pullRequests:
         resolver: true
+  Issue: 
+    fields:
+      author:
+        resolver: true
+      repository:
+        resolver: true
+      projectItems:
+        resolver: true
