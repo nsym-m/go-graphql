@@ -16,7 +16,7 @@ type repositoryService struct {
 func (r repositoryService) GetRepoByFullName(ctx context.Context, name, owner string) (*model.Repository, error) {
 
 	repo, err := db.Repositories(
-		qm.Select(db.RepositoryTableColumns.ID, db.RepositoryTableColumns.Name),
+		qm.Select(db.RepositoryTableColumns.ID, db.RepositoryTableColumns.Name, db.RepositoryTableColumns.Owner),
 		db.RepositoryWhere.Name.EQ(name),
 		db.RepositoryWhere.Owner.EQ(owner),
 	).One(ctx, r.exec)
@@ -28,7 +28,8 @@ func (r repositoryService) GetRepoByFullName(ctx context.Context, name, owner st
 
 func (r repositoryService) convertRepository(repo *db.Repository) *model.Repository {
 	return &model.Repository{
-		ID:   repo.ID,
-		Name: repo.Name,
+		ID:    repo.ID,
+		Name:  repo.Name,
+		Owner: &model.User{ID: repo.Owner},
 	}
 }
