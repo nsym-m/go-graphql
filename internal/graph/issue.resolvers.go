@@ -13,7 +13,12 @@ import (
 
 // Author is the resolver for the author field.
 func (r *issueResolver) Author(ctx context.Context, obj *model.Issue) (*model.User, error) {
-	panic(fmt.Errorf("not implemented: Author - author"))
+	thunk := r.Loaders.UserLoader.Load(ctx, obj.Author.ID)
+	user, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 // Repository is the resolver for the repository field.
