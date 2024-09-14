@@ -11,7 +11,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/nsym-m/go-graphql/internal/graph"
-	"github.com/nsym-m/go-graphql/internal/service"
+	"github.com/nsym-m/go-graphql/internal/services"
 )
 
 const (
@@ -31,11 +31,11 @@ func main() {
 	}
 	defer db.Close()
 
-	s := service.New(db)
+	service := services.New(db)
 
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{
-		Srv:     s,
-		Loaders: graph.NewLoaders(s),
+		Srv:     service,
+		Loaders: graph.NewLoaders(service),
 	}}))
 
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))

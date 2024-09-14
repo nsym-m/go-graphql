@@ -6,14 +6,14 @@ import (
 	"github.com/friendsofgo/errors"
 	"github.com/graph-gophers/dataloader/v7"
 	"github.com/nsym-m/go-graphql/internal/graph/model"
-	"github.com/nsym-m/go-graphql/internal/service"
+	"github.com/nsym-m/go-graphql/internal/services"
 )
 
 type Loaders struct {
 	UserLoader dataloader.Interface[string, *model.User]
 }
 
-func NewLoaders(srv service.Services) *Loaders {
+func NewLoaders(srv services.Services) *Loaders {
 	userBatcher := &userBatcher{Srv: srv}
 
 	return &Loaders{
@@ -24,7 +24,7 @@ func NewLoaders(srv service.Services) *Loaders {
 }
 
 type userBatcher struct {
-	Srv service.Services
+	Srv services.Services
 }
 
 func (u *userBatcher) BatchGetUsers(ctx context.Context, ids []string) []*dataloader.Result[*model.User] {
