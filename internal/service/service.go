@@ -23,6 +23,7 @@ type services struct {
 
 type UserService interface {
 	GetUserByName(ctx context.Context, name string) (*model.User, error)
+	ListUserByIDs(ctx context.Context, ids []string) ([]*model.User, error)
 }
 
 type RepositoryService interface {

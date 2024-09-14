@@ -31,8 +31,11 @@ func main() {
 	}
 	defer db.Close()
 
+	s := service.New(db)
+
 	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{
-		Srv: service.New(db),
+		Srv:     s,
+		Loaders: graph.NewLoaders(s),
 	}}))
 
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))

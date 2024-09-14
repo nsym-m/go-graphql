@@ -8,4 +8,5 @@ import "github.com/nsym-m/go-graphql/internal/service"
 
 type Resolver struct {
 	Srv service.Services
+	*Loaders
 }
