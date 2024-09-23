@@ -13,7 +13,7 @@ type ownerService struct {
 	exec boil.ContextExecutor
 }
 
-func (o ownerService) GetUserByID(ctx context.Context, id string) (*model.User, error) {
+func (o *ownerService) GetUserByID(ctx context.Context, id string) (*model.User, error) {
 
 	repo, err := db.Users(
 		qm.Select(
@@ -27,7 +27,7 @@ func (o ownerService) GetUserByID(ctx context.Context, id string) (*model.User, 
 	return o.convertRepository(repo), nil
 }
 
-func (o ownerService) convertRepository(user *db.User) *model.User {
+func (o *ownerService) convertRepository(user *db.User) *model.User {
 	return &model.User{
 		ID: user.ID,
 	}
