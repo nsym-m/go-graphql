@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/playground"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/nsym-m/go-graphql/internal/graph"
@@ -33,10 +34,14 @@ func main() {
 
 	service := services.New(db)
 
-	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{
-		Srv:     service,
-		Loaders: graph.NewLoaders(service),
-	}}))
+	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{
+		Resolvers: &graph.Resolver{
+			Srv:     service,
+			Loaders: graph.NewLoaders(service),
+		},
+		Complexity: graph.ComplexityConfig(),
+	}))
+	srv.Use(extension.FixedComplexityLimit(10))
 
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	http.Handle("/query", srv)
